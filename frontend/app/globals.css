@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme {
+  /* ─── Brand Colors ─── */
+  --color-primary: #2B4DD6;
+  --color-primary-dark: #1e3ab8;
+  --color-primary-hover: #3d5ee0;
+  --color-accent: #FF8A3D;
+  --color-accent-dark: #e67722;
+  --color-accent-hover: #ff9a55;
+  --color-mint: #7DD3C0;
+  --color-mint-dark: #5bbba6;
+  --color-bg: #F7F8FB;
+  --color-charcoal: #1A1F36;
+
+  /* ─── Typography ─── */
+  --font-manrope: var(--font-manrope-var), "Manrope", sans-serif;
+  --font-inter: var(--font-inter-var), "Inter", sans-serif;
+
+  /* ─── Spacing extras ─── */
+  --spacing-container: 1280px;
+}
+
+/* ─── Base ─── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-inter-var), "Inter", sans-serif;
+  color: #1A1F36;
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Accessible focus ring ─── */
+:focus-visible {
+  outline: 2px solid #2B4DD6;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Custom scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F7F8FB;
+}
+::-webkit-scrollbar-thumb {
+  background: #c4ccf0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2B4DD6;
+}
+
+/* ─── Skip-link (a11y) ─── */
+.skip-link {
+  position: fixed;
+  top: -100%;
+  left: 1rem;
+  z-index: 999;
+  background: #2B4DD6;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 0 0 8px 8px;
+  font-weight: 600;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* ─── Heading font ─── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-manrope-var), "Manrope", sans-serif;
+}
