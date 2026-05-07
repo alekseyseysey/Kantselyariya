@@ -1,12 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import type { Category } from '@/lib/types'
 
 const COL_COMPANY = [
   { label: 'О нас',      href: '/about' },
   { label: 'Контакты',   href: '/contacts' },
-  { label: 'Реквизиты',  href: '/requisites' },
-  { label: 'Вакансии',   href: '/jobs' },
   { label: 'Отзывы',     href: '/reviews' },
 ]
 
@@ -18,15 +17,8 @@ const COL_BUYERS = [
   { label: 'Карта сайта',       href: '/sitemap' },
 ]
 
-const COL_CATALOG = [
-  { label: 'Тетради и дневники',   href: '/catalog/notebooks' },
-  { label: 'Ручки и карандаши',    href: '/catalog/pens-pencils' },
-  { label: 'Краски и кисти',       href: '/catalog/paints-brushes' },
-  { label: 'Ежедневники',          href: '/catalog/planners' },
-  { label: 'Рюкзаки и пеналы',    href: '/catalog/bags-pencilcases' },
-  { label: 'Хобби и творчество',   href: '/catalog/hobbies-art' },
-  { label: 'Подарки',              href: '/catalog/gifts-souvenirs' },
-]
+// Сколько категорий показывать в футере. Остальные — на /catalog.
+const FOOTER_CATALOG_LIMIT = 7
 
 const SOCIALS = [
   { name: 'Telegram',  href: 'https://t.me/kantsmir',             emoji: '✈️' },
@@ -36,7 +28,26 @@ const SOCIALS = [
   { name: 'VK',        href: 'https://vk.com/kantsmir',            emoji: '🔵' },
 ]
 
-export default function Footer() {
+interface Props {
+  /** Site Title из WP General Settings. */
+  siteName: string
+  /** Tagline / описание сайта (под логотипом). */
+  siteTagline: string
+  /** Реальные категории из Woo (для колонки «Каталог»). */
+  categories: Category[]
+}
+
+export default function Footer({ siteName, siteTagline, categories }: Props) {
+  const year = new Date().getFullYear()
+
+  // Топ-категории по количеству товаров. Не отрисовываем misc («Все товары»)
+  // отдельной строкой — на него и так есть «Перейти в каталог».
+  const catalogColumn = categories
+    .filter(c => c.slug !== 'misc')
+    .slice()
+    .sort((a, b) => b.count - a.count)
+    .slice(0, FOOTER_CATALOG_LIMIT)
+    .map(c => ({ label: c.name, href: `/catalog?category=${c.slug}` }))
   return (
     <footer className="bg-[#1A1F36] text-white">
       {/* Main footer grid */}
@@ -50,14 +61,14 @@ export default function Footer() {
                 style={{ background: 'linear-gradient(135deg, #2B4DD6, #FF8A3D)' }}
                 aria-hidden="true"
               >
-                КМ
+                {siteName.slice(0, 2).toUpperCase()}
               </div>
               <span className="font-extrabold text-lg" style={{ fontFamily: 'var(--font-manrope-var), Manrope, sans-serif' }}>
-                КанцМир
+                {siteName}
               </span>
             </Link>
             <p className="text-white/55 text-sm leading-relaxed mb-5">
-              Всё для учёбы, работы и творчества — более 12 000 позиций в наличии.
+              {siteTagline}
             </p>
             <div className="flex flex-wrap gap-2">
               {SOCIALS.map(s => (
@@ -118,13 +129,21 @@ export default function Footer() {
               Каталог
             </h3>
             <ul className="space-y-2.5 mb-6">
-              {COL_CATALOG.map(l => (
+              {catalogColumn.map(l => (
                 <li key={l.href}>
                   <Link href={l.href} className="text-sm text-white/55 hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white focus-visible:rounded">
                     {l.label}
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  href="/catalog"
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-[#7DD3C0] hover:text-white transition-colors focus-visible:outline-2 focus-visible:outline-white focus-visible:rounded"
+                >
+                  Весь каталог →
+                </Link>
+              </li>
             </ul>
 
             {/* Subscribe */}
@@ -157,7 +176,7 @@ export default function Footer() {
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-wrap items-center justify-between gap-4">
           <p className="text-xs text-white/35">
-            © 2026 КанцМир. Все права защищены.
+            © {year} {siteName}. Все права защищены.
           </p>
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/privacy" className="text-xs text-white/35 hover:text-white/70 transition-colors focus-visible:outline-2 focus-visible:outline-white focus-visible:rounded">

@@ -180,13 +180,14 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <button
+              <Link
+                href="/checkout"
                 className="w-full flex items-center justify-center gap-2 rounded-xl py-4 font-semibold text-white text-base transition-all hover:bg-[#1e3ab8] hover:shadow-lg hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
                 style={{ background: '#2B4DD6' }}
               >
                 Оформить заказ
                 <ArrowRight size={18} />
-              </button>
+              </Link>
 
               <Link
                 href="/catalog"

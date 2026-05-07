@@ -21,6 +21,7 @@ import {
   GraduationCap,
   type LucideIcon,
 } from 'lucide-react'
+import type { HeroContent } from '@/lib/types'
 
 /* ─── Floating item definitions ─── */
 interface FloatItemDef {
@@ -121,16 +122,12 @@ function FloatingItem({
   )
 }
 
-/* ─── Stats strip ─── */
-const STATS = [
-  { value: '12 000+', label: 'товаров' },
-  { value: '24 ч',   label: 'доставка' },
-  { value: '8 лет',  label: 'на рынке' },
-  { value: '15 000+',label: 'клиентов' },
-]
-
 /* ─── Main hero ─── */
-export default function HeroSection() {
+interface Props {
+  content: HeroContent
+}
+
+export default function HeroSection({ content }: Props) {
   const reduced = useReducedMotion() ?? false
   const heroRef = useRef<HTMLElement>(null)
 
@@ -211,7 +208,7 @@ export default function HeroSection() {
                   style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)' }}>
               <span className="w-2 h-2 rounded-full bg-[#FF8A3D]"
                     style={{ animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' }} />
-              Более 12 000 товаров в наличии
+              {content.badge}
             </span>
           </motion.div>
 
@@ -223,8 +220,8 @@ export default function HeroSection() {
             className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white leading-[1.1] tracking-tight mb-6"
             style={{ fontFamily: 'var(--font-manrope-var), Manrope, sans-serif' }}
           >
-            Канцелярия для тех, кто любит{' '}
-            <span style={{ color: '#FF8A3D' }}>делать дело</span>{' '}
+            {content.heading}{' '}
+            <span style={{ color: '#FF8A3D' }}>{content.headingHighlight}</span>{' '}
             красиво
           </motion.h1>
 
@@ -236,11 +233,7 @@ export default function HeroSection() {
             className="text-lg sm:text-xl leading-relaxed mb-10 max-w-xl"
             style={{ color: 'rgba(255,255,255,0.80)' }}
           >
-            12&nbsp;000+ товаров в наличии. Доставка по Беларуси за 24 часа.{' '}
-            <span style={{ color: '#7DD3C0' }} className="font-semibold">
-              Опт от 1 единицы
-            </span>{' '}
-            — выгодно школам, офисам, студиям.
+            {content.subheading}
           </motion.p>
 
           {/* CTA Buttons */}
@@ -251,7 +244,7 @@ export default function HeroSection() {
             className="flex flex-wrap gap-4"
           >
             <Link
-              href="/catalog"
+              href={content.primaryCta.url}
               className="inline-flex items-center justify-center gap-2 rounded-xl px-8 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               style={{
                 background: '#FF8A3D',
@@ -260,13 +253,13 @@ export default function HeroSection() {
               onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#e67722')}
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = '#FF8A3D')}
             >
-              Перейти в каталог
+              {content.primaryCta.label}
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </Link>
             <Link
-              href="/wholesale"
+              href={content.secondaryCta.url}
               className="inline-flex items-center justify-center gap-2 rounded-xl px-8 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               style={{
                 background: 'rgba(255,255,255,0.10)',
@@ -274,7 +267,7 @@ export default function HeroSection() {
                 backdropFilter: 'blur(8px)',
               }}
             >
-              Оптом дешевле
+              {content.secondaryCta.label}
             </Link>
           </motion.div>
 
@@ -286,7 +279,7 @@ export default function HeroSection() {
             className="flex flex-wrap gap-8 mt-12 pt-8"
             style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}
           >
-            {STATS.map(s => (
+            {content.stats.map(s => (
               <div key={s.label}>
                 <div className="text-2xl font-bold text-white"
                      style={{ fontFamily: 'var(--font-manrope-var), Manrope, sans-serif' }}>

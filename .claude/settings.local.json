@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X POST http://kantselariya.local/graphql -H \"Content-Type: application/json\" --data-raw \"{\\\\\"query\\\\\":\\\\\"fragment PF on Product { databaseId slug name sku averageRating reviewCount reviews\\(first: 5\\) { edges { rating node { id databaseId date content author { node { name } } } } } ... on SimpleProduct { price regularPrice salePrice stockStatus stockQuantity } } query Q { products\\(first: 5\\) { nodes { ...PF } } }\\\\\"}\")"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { SlidersHorizontal, X, ChevronDown, Grid3X3, List } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { SlidersHorizontal, X, ChevronDown, Grid3X3, List, Loader2 } from 'lucide-react'
 import ProductCard from './ProductCard'
 import type { Product, Category } from '@/lib/types'
 
@@ -15,18 +15,52 @@ const SORT_OPTIONS: { label: string; value: SortKey }[] = [
 ]
 
 interface Props {
+  /** Первая порция товаров (server-side fetch). */
   allProducts: Product[]
   allCategories: Category[]
+  /** Если задан — на старте отмечена только эта категория, а не «все». */
   preselectedCategoryId?: string
-  initialSaleOnly?: boolean 
+  initialSaleOnly?: boolean
+  /** Курсор для следующей страницы (`pageInfo.endCursor` из WooGraphQL). */
+  initialEndCursor?: string | null
+  /** Есть ли ещё страницы дальше. */
+  initialHasNextPage?: boolean
+  /** Slug категории (если страница /catalog/[category]) — нужен прокси-роуту. */
+  categorySlug?: string
+  /** Размер страницы для дозагрузки (по умолчанию 20). */
+  pageSize?: number
 }
 
-export default function CatalogView({ allProducts, allCategories, preselectedCategoryId, initialSaleOnly = false }: Props) {
+export default function CatalogView({
+  allProducts,
+  allCategories,
+  preselectedCategoryId,
+  initialSaleOnly = false,
+  initialEndCursor = null,
+  initialHasNextPage = false,
+  categorySlug,
+  pageSize = 20,
+}: Props) {
+  // Список товаров — теперь живёт в state, чтобы дозагрузка добавляла к нему.
+  const [products, setProducts] = useState<Product[]>(allProducts)
+  const [endCursor, setEndCursor] = useState<string | null>(initialEndCursor)
+  const [hasNextPage, setHasNextPage] = useState<boolean>(initialHasNextPage)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Служебная категория «Все товары» (slug `misc`) — Woo-default,
+  // в которой лежит каждый товар.
+  const miscId = allCategories.find(c => c.slug === 'misc')?.id
+
+  // По умолчанию: если есть preselect — отмечена эта категория;
+  // иначе — `misc` (если есть).
+  const defaultCategoryId = preselectedCategoryId ?? miscId
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
-    preselectedCategoryId ? [preselectedCategoryId] : []
+    defaultCategoryId ? [defaultCategoryId] : []
   )
   const [selectedBrands, setSelectedBrands] = useState<string[]>([])
-  const [onlySale, setOnlySale] = useState(false)
+  const [onlySale, setOnlySale] = useState(initialSaleOnly)
   const [onlyInStock, setOnlyInStock] = useState(false)
   const [sort, setSort] = useState<SortKey>('popular')
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -34,14 +68,19 @@ export default function CatalogView({ allProducts, allCategories, preselectedCat
   const [sortOpen, setSortOpen] = useState(false)
 
   const availableBrands = useMemo(() => {
-    const s = new Set(allProducts.map(p => p.brand))
+    const s = new Set(products.map(p => p.brand).filter(Boolean))
     return Array.from(s).sort()
-  }, [allProducts])
+  }, [products])
 
   const filtered = useMemo(() => {
-    let items = [...allProducts]
+    let items = [...products]
     if (selectedCategories.length) {
-      items = items.filter(p => selectedCategories.includes(p.categoryId))
+      // Товар может состоять в нескольких категориях (Woo это разрешает).
+      // Сверяем по `categoryIds`, а для моков fallback'имся на singular `categoryId`.
+      items = items.filter(p => {
+        const ids = p.categoryIds ?? [p.categoryId]
+        return ids.some(id => selectedCategories.includes(id))
+      })
     }
     if (selectedBrands.length) {
       items = items.filter(p => selectedBrands.includes(p.brand))
@@ -56,23 +95,83 @@ export default function CatalogView({ allProducts, allCategories, preselectedCat
       default:           items.sort((a, b) => b.reviewCount - a.reviewCount)
     }
     return items
-  }, [allProducts, selectedCategories, selectedBrands, onlySale, onlyInStock, sort])
+  }, [products, selectedCategories, selectedBrands, onlySale, onlyInStock, sort])
+
+  // Снимаем «misc», когда пользователь активирует любой более конкретный фильтр.
+  // Идея: «Все товары» = «не выбран никакой конкретный фильтр»; как только что-то
+  // конкретное появляется — этот мета-фильтр становится бессмысленным.
+  function clearMiscIfPresent() {
+    if (!miscId) return
+    setSelectedCategories(prev => prev.includes(miscId) ? prev.filter(c => c !== miscId) : prev)
+  }
 
   function toggleCategory(id: string) {
+    const wasSelected = selectedCategories.includes(id)
+
+    // Включаем misc («Все товары») → сбрасываем все остальные фильтры,
+    // потому что misc — это «без сужений».
+    if (id === miscId && !wasSelected) {
+      setSelectedCategories([miscId])
+      setSelectedBrands([])
+      setOnlySale(false)
+      setOnlyInStock(false)
+      return
+    }
+
     setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id])
+    if (!wasSelected && id !== miscId) clearMiscIfPresent()
   }
   function toggleBrand(b: string) {
+    const wasSelected = selectedBrands.includes(b)
     setSelectedBrands(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])
+    if (!wasSelected) clearMiscIfPresent()
   }
 
-  const activeFilterCount = selectedCategories.length + selectedBrands.length + (onlySale ? 1 : 0) + (onlyInStock ? 1 : 0)
+  const activeFilterCount =
+    selectedCategories.length +
+    selectedBrands.length +
+    (onlySale ? 1 : 0) +
+    (onlyInStock ? 1 : 0)
 
   function clearAll() {
-    setSelectedCategories(preselectedCategoryId ? [preselectedCategoryId] : [])
+    setSelectedCategories(defaultCategoryId ? [defaultCategoryId] : [])
     setSelectedBrands([])
     setOnlySale(false)
     setOnlyInStock(false)
   }
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasNextPage || !endCursor) return
+    setLoadingMore(true)
+    setLoadError(null)
+    try {
+      const params = new URLSearchParams({
+        first: String(pageSize),
+        after: endCursor,
+      })
+      if (categorySlug) params.set('category', categorySlug)
+      const res = await fetch(`/api/products-page?${params.toString()}`)
+      if (!res.ok) throw new Error('Не удалось загрузить ещё товары')
+      const page = await res.json() as {
+        products: Product[]
+        endCursor: string | null
+        hasNextPage: boolean
+      }
+      setProducts(prev => {
+        // Дедуп по id — на случай, если бэкенд по какой-то причине вернёт пересечение.
+        const seen = new Set(prev.map(p => p.id))
+        const merged = [...prev]
+        for (const p of page.products) if (!seen.has(p.id)) merged.push(p)
+        return merged
+      })
+      setEndCursor(page.endCursor)
+      setHasNextPage(page.hasNextPage)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Ошибка загрузки')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasNextPage, endCursor, pageSize, categorySlug])
 
   const FilterPanel = () => (
     <div className="space-y-6">
@@ -128,13 +227,27 @@ export default function CatalogView({ allProducts, allCategories, preselectedCat
       {/* Toggles */}
       <div className="space-y-3">
         <label className="flex items-center gap-2.5 cursor-pointer">
-          <input type="checkbox" checked={onlySale} onChange={e => setOnlySale(e.target.checked)}
-            className="w-4 h-4 rounded accent-[#FF8A3D] focus-visible:outline-2 focus-visible:outline-[#2B4DD6]" />
+          <input
+            type="checkbox"
+            checked={onlySale}
+            onChange={e => {
+              setOnlySale(e.target.checked)
+              if (e.target.checked) clearMiscIfPresent()
+            }}
+            className="w-4 h-4 rounded accent-[#FF8A3D] focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
+          />
           <span className="text-sm text-[#1A1F36]/75">Только со скидкой</span>
         </label>
         <label className="flex items-center gap-2.5 cursor-pointer">
-          <input type="checkbox" checked={onlyInStock} onChange={e => setOnlyInStock(e.target.checked)}
-            className="w-4 h-4 rounded accent-[#2B4DD6] focus-visible:outline-2 focus-visible:outline-[#2B4DD6]" />
+          <input
+            type="checkbox"
+            checked={onlyInStock}
+            onChange={e => {
+              setOnlyInStock(e.target.checked)
+              if (e.target.checked) clearMiscIfPresent()
+            }}
+            className="w-4 h-4 rounded accent-[#2B4DD6] focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
+          />
           <span className="text-sm text-[#1A1F36]/75">Только в наличии</span>
         </label>
       </div>
@@ -164,7 +277,9 @@ export default function CatalogView({ allProducts, allCategories, preselectedCat
         {/* Toolbar */}
         <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
           <p className="text-sm text-[#1A1F36]/60">
-            <span className="font-semibold text-[#1A1F36]">{filtered.length}</span> товаров
+            <span className="font-semibold text-[#1A1F36]">{filtered.length}</span>
+            {filtered.length !== products.length ? <> из <span className="font-semibold text-[#1A1F36]">{products.length}</span> загруженных</> : ' товаров'}
+            {hasNextPage && <span className="text-[#1A1F36]/45"> · есть ещё</span>}
           </p>
 
           <div className="flex items-center gap-2 ml-auto">
@@ -286,18 +401,42 @@ export default function CatalogView({ allProducts, allCategories, preselectedCat
             </button>
           </div>
         ) : (
-          <ul
-            role="list"
-            className={gridView === 'grid'
-              ? 'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4'
-              : 'flex flex-col gap-3'}
-          >
-            {filtered.map(p => (
-              <li key={p.id}>
-                <ProductCard product={p} />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul
+              role="list"
+              className={gridView === 'grid'
+                ? 'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4'
+                : 'flex flex-col gap-3'}
+            >
+              {filtered.map(p => (
+                <li key={p.id}>
+                  <ProductCard product={p} />
+                </li>
+              ))}
+            </ul>
+
+            {/* Pagination — «Показать ещё» */}
+            {(hasNextPage || loadError) && (
+              <div className="mt-8 flex flex-col items-center gap-3">
+                {loadError && (
+                  <p role="alert" className="text-sm text-[#ef4444]">{loadError}</p>
+                )}
+                {hasNextPage && (
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl px-8 py-3 text-sm font-semibold border-2 border-[#2B4DD6] text-[#2B4DD6] hover:bg-[#2B4DD6] hover:text-white transition-all disabled:opacity-60 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
+                  >
+                    {loadingMore && <Loader2 size={16} className="animate-spin" />}
+                    {loadingMore ? 'Загружаем…' : `Показать ещё ${pageSize}`}
+                  </button>
+                )}
+                {!hasNextPage && products.length > pageSize && (
+                  <p className="text-sm text-[#1A1F36]/45">Это все товары.</p>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

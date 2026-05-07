@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { PROMO_SLIDES } from '@/lib/mock-data'
+import type { PromoSlide } from '@/lib/types'
 
 const AUTO_INTERVAL = 5000
 
@@ -20,17 +20,21 @@ const slideVariants = {
   }),
 }
 
-export default function PromoSlider() {
+interface Props {
+  slides: PromoSlide[]
+}
+
+export default function PromoSlider({ slides }: Props) {
   const [current, setCurrent] = useState(0)
   const [dir, setDir] = useState(1)
   const [paused, setPaused] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const goTo = useCallback((next: number) => {
-    const clamped = (next + PROMO_SLIDES.length) % PROMO_SLIDES.length
+    const clamped = (next + slides.length) % slides.length
     setDir(next > current ? 1 : -1)
     setCurrent(clamped)
-  }, [current])
+  }, [current, slides.length])
 
   const next = useCallback(() => goTo(current + 1), [goTo, current])
   const prev = useCallback(() => goTo(current - 1), [goTo, current])
@@ -41,7 +45,8 @@ export default function PromoSlider() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [paused, next])
 
-  const slide = PROMO_SLIDES[current]
+  if (slides.length === 0) return null
+  const slide = slides[current]
 
   return (
     <section
@@ -112,7 +117,7 @@ export default function PromoSlider() {
 
       {/* Dots */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10" role="tablist" aria-label="Слайды">
-        {PROMO_SLIDES.map((s, i) => (
+        {slides.map((s, i) => (
           <button
             key={s.id}
             role="tab"

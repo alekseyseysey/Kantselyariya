@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Search, Heart, User, ShoppingCart, Phone, Menu, X, ChevronDown } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { Search, Heart, ShoppingCart, Phone, Menu, X } from 'lucide-react'
 import { useCart } from '@/hooks/CartProvider'
-import { CATEGORIES } from '@/lib/mock-data'
+import { useWishlist } from '@/hooks/WishlistProvider'
 
 const NAV_LINKS = [
   { label: 'Акции',            href: '/sale' },
@@ -14,30 +15,31 @@ const NAV_LINKS = [
   { label: 'Контакты',         href: '/contacts' },
 ]
 
-export default function Header() {
+interface Props {
+  /** Site Title из WP General Settings — отображается рядом с логотипом. */
+  siteName: string
+}
+
+export default function Header({ siteName }: Props) {
   const { totalItems } = useCart()
+  const { totalItems: wishlistItems, hydrated: wishlistHydrated } = useWishlist()
+  const pathname = usePathname() ?? '/'
+
+  // «Каталог» считается активным на /catalog, /catalog/[category] и страницах товаров.
+  const isCatalogActive =
+    pathname === '/catalog' || pathname.startsWith('/catalog/') || pathname.startsWith('/product/')
+
+  // Для остальных пунктов — точное совпадение по pathname.
+  const isLinkActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
   const [scrolled, setScrolled]     = useState(false)
   const [menuOpen, setMenuOpen]      = useState(false)
-  const [megaOpen, setMegaOpen]      = useState(false)
   const [searchVal, setSearchVal]    = useState('')
-  const megaRef   = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     function onScroll() { setScrolled(window.scrollY > 10) }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  /* close mega-menu on outside click */
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (megaRef.current && !megaRef.current.contains(e.target as Node)) {
-        setMegaOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
   return (
@@ -55,7 +57,7 @@ export default function Header() {
           {/* Logo */}
           <Link
             href="/"
-            aria-label="КанцМир — на главную"
+            aria-label={`${siteName} — на главную`}
             className="flex-none flex items-center gap-2 focus-visible:outline-2 focus-visible:outline-[#2B4DD6] focus-visible:rounded"
           >
             <div
@@ -63,13 +65,13 @@ export default function Header() {
               style={{ background: 'linear-gradient(135deg, #2B4DD6, #FF8A3D)' }}
               aria-hidden="true"
             >
-              КМ
+              {siteName.slice(0, 2).toUpperCase()}
             </div>
             <span
               className="hidden sm:block font-extrabold text-[#1A1F36] text-lg leading-none"
               style={{ fontFamily: 'var(--font-manrope-var), Manrope, sans-serif' }}
             >
-              КанцМир
+              {siteName}
             </span>
           </Link>
 
@@ -117,13 +119,22 @@ export default function Header() {
             {/* Wishlist */}
             <Link
               href="/wishlist"
-              aria-label="Избранное"
+              aria-label={`Избранное${wishlistHydrated && wishlistItems > 0 ? `, ${wishlistItems} товаров` : ''}`}
               className="relative w-10 h-10 rounded-xl flex items-center justify-center text-[#1A1F36]/60 hover:bg-[#F7F8FB] hover:text-[#2B4DD6] transition-all focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
             >
               <Heart size={20} />
+              {wishlistHydrated && wishlistItems > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1"
+                  style={{ background: '#FF8A3D' }}
+                >
+                  {wishlistItems > 99 ? '99+' : wishlistItems}
+                </span>
+              )}
             </Link>
 
-            {/* Account */}
+            {/* Account — disabled until auth lands. Re-enable when /account exists.
             <Link
               href="/account"
               aria-label="Личный кабинет"
@@ -131,6 +142,7 @@ export default function Header() {
             >
               <User size={20} />
             </Link>
+            */}
 
             {/* Cart */}
             <Link
@@ -165,61 +177,47 @@ export default function Header() {
       </div>
 
       {/* ─── Category nav bar ─── */}
-      <div className="hidden lg:block" ref={megaRef}>
+      <div className="hidden lg:block">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <nav aria-label="Категории каталога" className="flex items-center gap-1 h-11">
-            {/* Catalog button with mega-menu */}
-            <div className="relative">
-              <button
-                onClick={() => setMegaOpen(m => !m)}
-                aria-expanded={megaOpen}
-                aria-haspopup="menu"
-                aria-controls="mega-menu"
-                className="flex items-center gap-1.5 h-11 px-4 text-sm font-semibold text-white rounded-xl transition-all focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
-                style={{ background: '#2B4DD6' }}
-              >
-                <Menu size={15} aria-hidden="true" />
-                Каталог
-                <ChevronDown
-                  size={14}
-                  aria-hidden="true"
-                  style={{ transform: megaOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
-                />
-              </button>
-
-              {/* Mega menu panel */}
-              {megaOpen && (
-                <div
-                  id="mega-menu"
-                  role="menu"
-                  className="absolute left-0 top-full mt-2 w-[680px] rounded-2xl bg-white shadow-2xl border border-[#e2e8f0] z-50 p-4 grid grid-cols-3 gap-1"
-                >
-                  {CATEGORIES.map(cat => (
-                    <Link
-                      key={cat.id}
-                      href={`/catalog/${cat.slug}`}
-                      role="menuitem"
-                      onClick={() => setMegaOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#1A1F36] hover:bg-[#F7F8FB] hover:text-[#2B4DD6] transition-colors focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
-                    >
-                      <span className="text-xl" aria-hidden="true">{cat.emoji}</span>
-                      <span className="font-medium leading-tight">{cat.name}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+          <nav aria-label="Главное меню" className="flex items-center gap-1 h-11">
+            {/* Catalog button — обычная ссылка на /catalog */}
+            <Link
+              href="/catalog"
+              aria-current={isCatalogActive ? 'page' : undefined}
+              className="flex items-center gap-1.5 h-11 px-4 text-sm font-semibold text-white rounded-xl transition-all hover:bg-[#1e3ab8] focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
+              style={{
+                background: '#2B4DD6',
+                boxShadow: isCatalogActive ? '0 0 0 2px #fff, 0 0 0 4px #2B4DD6' : undefined,
+              }}
+            >
+              <Menu size={15} aria-hidden="true" />
+              Каталог
+            </Link>
 
             {/* Nav links */}
-            {NAV_LINKS.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="h-11 px-4 flex items-center text-sm font-medium text-[#1A1F36]/75 hover:text-[#2B4DD6] hover:bg-[#F7F8FB] rounded-xl transition-all focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map(link => {
+              const active = isLinkActive(link.href)
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative h-11 px-4 flex items-center text-sm font-medium rounded-xl transition-all focus-visible:outline-2 focus-visible:outline-[#2B4DD6] ${
+                    active
+                      ? 'text-[#2B4DD6] font-semibold bg-[#EEF2FF]'
+                      : 'text-[#1A1F36]/75 hover:text-[#2B4DD6] hover:bg-[#F7F8FB]'
+                  }`}
+                >
+                  {link.label}
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-3 right-3 -bottom-px h-0.5 rounded-full bg-[#2B4DD6]"
+                    />
+                  )}
+                </Link>
+              )
+            })}
           </nav>
         </div>
       </div>
@@ -235,22 +233,40 @@ export default function Header() {
             <Link
               href="/catalog"
               onClick={() => setMenuOpen(false)}
+              aria-current={isCatalogActive ? 'page' : undefined}
               className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-white"
-              style={{ background: '#2B4DD6' }}
+              style={{
+                background: '#2B4DD6',
+                boxShadow: isCatalogActive ? '0 0 0 2px #fff, 0 0 0 4px #2B4DD6' : undefined,
+              }}
             >
               <Menu size={16} />
               Каталог
             </Link>
-            {NAV_LINKS.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center px-4 py-3 rounded-xl text-sm font-medium text-[#1A1F36]/75 hover:text-[#2B4DD6] hover:bg-[#F7F8FB] transition-all focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map(link => {
+              const active = isLinkActive(link.href)
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMenuOpen(false)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`relative flex items-center px-4 py-3 rounded-xl text-sm transition-all focus-visible:outline-2 focus-visible:outline-[#2B4DD6] ${
+                    active
+                      ? 'font-semibold text-[#2B4DD6] bg-[#EEF2FF]'
+                      : 'font-medium text-[#1A1F36]/75 hover:text-[#2B4DD6] hover:bg-[#F7F8FB]'
+                  }`}
+                >
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1 h-5 rounded-full bg-[#2B4DD6]"
+                    />
+                  )}
+                  {link.label}
+                </Link>
+              )
+            })}
             <div className="flex items-center gap-2 px-4 pt-2 border-t border-[#F7F8FB]">
               <Phone size={16} className="text-[#2B4DD6]" aria-hidden="true" />
               <a href="tel:+375296104141" className="text-sm font-semibold text-[#1A1F36] hover:text-[#2B4DD6]">

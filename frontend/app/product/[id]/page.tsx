@@ -1,15 +1,23 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { fetchProductBySlug, fetchProducts } from '@/lib/wp-api'
-import { PRODUCTS } from '@/lib/mock-data'
+import {
+  fetchAllProductSlugs,
+  fetchCategories,
+  fetchDeliveryContent,
+  fetchProductBySlug,
+  fetchProducts,
+} from '@/lib/wp-api'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import ProductGallery from '@/components/features/ProductGallery'
 import ProductAddToCart from '@/components/features/ProductAddToCart'
 import ProductTabs from '@/components/features/ProductTabs'
 import ProductCard from '@/components/features/ProductCard'
 
+export const dynamicParams = true
+
 export async function generateStaticParams() {
-  return PRODUCTS.map(p => ({ id: p.slug }))
+  const slugs = await fetchAllProductSlugs()
+  return slugs.map(slug => ({ id: slug }))
 }
 
 export async function generateMetadata({
@@ -22,7 +30,8 @@ export async function generateMetadata({
   if (!product) return { title: 'Товар не найден' }
   return {
     title: product.name,
-    description: product.description ?? `${product.name} — купить в КанцМир. Быстрая доставка по Беларуси.`,
+    description:
+      product.description ?? `${product.name} — купить в КанцМир. Быстрая доставка по Беларуси.`,
     openGraph: {
       title: product.name,
       description: product.description,
@@ -37,16 +46,20 @@ export default async function ProductPage({
   params: Promise<{ id: string }>
 }) {
   const { id: slug } = await params
-  const [product, allProducts] = await Promise.all([
-    fetchProductBySlug(slug),
-    fetchProducts({ limit: 100 }),
-  ])
-
+  const product = await fetchProductBySlug(slug)
   if (!product) notFound()
 
+  const [allProducts, categories, deliveryHtml] = await Promise.all([
+    fetchProducts({ limit: 100 }),
+    fetchCategories(),
+    fetchDeliveryContent(),
+  ])
   const related = allProducts
     .filter(p => p.categoryId === product.categoryId && p.id !== product.id)
     .slice(0, 4)
+
+  const categorySlug =
+    categories.find(c => c.id === product.categoryId)?.slug ?? ''
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -58,9 +71,10 @@ export default async function ProductPage({
       '@type': 'Offer',
       price: product.price,
       priceCurrency: 'BYN',
-      availability: product.stock > 0
-        ? 'https://schema.org/InStock'
-        : 'https://schema.org/OutOfStock',
+      availability:
+        product.stock > 0
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
     },
     ...(product.rating && {
       aggregateRating: {
@@ -84,25 +98,22 @@ export default async function ProductPage({
             items={[
               { label: 'Главная', href: '/' },
               { label: 'Каталог', href: '/catalog' },
-              { label: product.categoryName, href: `/catalog/${PRODUCTS.find(p => p.id === product.id)?.categoryId ?? ''}` },
+              { label: product.categoryName, href: `/catalog/${categorySlug}` },
               { label: product.name },
             ]}
             className="mb-6"
           />
 
-          {/* Main product area */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 mb-12">
             <ProductGallery images={product.images} productName={product.name} />
 
             <div className="flex flex-col gap-2">
-              {/* Brand + SKU */}
               <div className="flex items-center gap-3 text-sm text-[#1A1F36]/50">
                 <span className="font-semibold uppercase tracking-wide text-xs">{product.brand}</span>
                 <span>·</span>
                 <span>Арт. {product.sku}</span>
               </div>
 
-              {/* Title */}
               <h1
                 className="text-2xl sm:text-3xl font-extrabold text-[#1A1F36] leading-tight"
                 style={{ fontFamily: 'var(--font-manrope-var), Manrope, sans-serif' }}
@@ -110,7 +121,6 @@ export default async function ProductPage({
                 {product.name}
               </h1>
 
-              {/* Rating row */}
               {product.rating > 0 && (
                 <div className="flex items-center gap-2">
                   <div className="flex gap-0.5" aria-hidden="true">
@@ -129,19 +139,16 @@ export default async function ProductPage({
                 </div>
               )}
 
-              {/* Divider */}
               <div className="h-px bg-[#e2e8f0] my-2" />
 
               <ProductAddToCart product={product} />
             </div>
           </div>
 
-          {/* Tabs section */}
           <div className="bg-white rounded-2xl border border-[#e2e8f0] p-6 sm:p-8 mb-12">
-            <ProductTabs product={product} />
+            <ProductTabs product={product} deliveryHtml={deliveryHtml} />
           </div>
 
-          {/* Related products */}
           {related.length > 0 && (
             <section aria-labelledby="related-heading">
               <h2

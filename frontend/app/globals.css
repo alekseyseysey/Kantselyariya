@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
   /* ─── Brand Colors ─── */
@@ -77,4 +78,38 @@ body {
 /* ─── Heading font ─── */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-manrope-var), "Manrope", sans-serif;
+}
+
+/* ─── Brand-tinted typography (для WP-контента: Доставка, FAQ, описания) ───
+   Переменные `--tw-prose-*` идут из @tailwindcss/typography. Перебиваем
+   только ключевые цвета и шрифт заголовков, остальное — дефолты плагина. */
+.prose-kantsmir {
+  --tw-prose-body:          rgba(26, 31, 54, 0.85);
+  --tw-prose-headings:      #1A1F36;
+  --tw-prose-lead:          rgba(26, 31, 54, 0.75);
+  --tw-prose-links:         #2B4DD6;
+  --tw-prose-bold:          #1A1F36;
+  --tw-prose-counters:      rgba(26, 31, 54, 0.55);
+  --tw-prose-bullets:       #FF8A3D;
+  --tw-prose-hr:            #e2e8f0;
+  --tw-prose-quotes:        #1A1F36;
+  --tw-prose-quote-borders: #2B4DD6;
+  --tw-prose-captions:      rgba(26, 31, 54, 0.55);
+  --tw-prose-code:          #2B4DD6;
+  --tw-prose-pre-code:      #F7F8FB;
+  --tw-prose-pre-bg:        #1A1F36;
+  --tw-prose-th-borders:    #cbd5e1;
+  --tw-prose-td-borders:    #e2e8f0;
+}
+.prose-kantsmir :where(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--font-manrope-var), "Manrope", sans-serif;
+}
+.prose-kantsmir :where(a) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 0.15s ease;
+}
+.prose-kantsmir :where(a:hover) {
+  color: #1e3ab8;
 }

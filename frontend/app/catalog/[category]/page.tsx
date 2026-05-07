@@ -1,9 +1,16 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { fetchProducts, fetchCategories } from '@/lib/wp-api'
-import { CATEGORIES } from '@/lib/mock-data'
+import {
+  fetchCategories,
+  fetchCategoryBySlug,
+  fetchProductsPage,
+} from '@/lib/wp-api'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import CatalogView from '@/components/features/CatalogView'
+
+export const dynamicParams = true
+
+const PAGE_SIZE = 20
 
 export async function generateStaticParams() {
   const categories = await fetchCategories()
@@ -16,7 +23,7 @@ export async function generateMetadata({
   params: Promise<{ category: string }>
 }): Promise<Metadata> {
   const { category: slug } = await params
-  const cat = CATEGORIES.find(c => c.slug === slug)
+  const cat = await fetchCategoryBySlug(slug)
   if (!cat) return { title: 'Категория не найдена' }
   return {
     title: cat.name,
@@ -30,11 +37,11 @@ export default async function CategoryPage({
   params: Promise<{ category: string }>
 }) {
   const { category: slug } = await params
-  const category = CATEGORIES.find(c => c.slug === slug)
+  const category = await fetchCategoryBySlug(slug)
   if (!category) notFound()
 
-  const [products, allCategories] = await Promise.all([
-    fetchProducts({ limit: 100 }),
+  const [page, allCategories] = await Promise.all([
+    fetchProductsPage({ first: PAGE_SIZE, categorySlug: slug }),
     fetchCategories(),
   ])
 
@@ -50,7 +57,6 @@ export default async function CategoryPage({
           className="mb-6"
         />
 
-        {/* Category hero strip */}
         <div
           className="rounded-2xl px-8 py-6 mb-8 flex items-center gap-5"
           style={{ background: category.iconBg, border: `1.5px solid ${category.color}20` }}
@@ -70,9 +76,13 @@ export default async function CategoryPage({
         </div>
 
         <CatalogView
-          allProducts={products}
+          allProducts={page.products}
           allCategories={allCategories}
           preselectedCategoryId={category.id}
+          initialEndCursor={page.endCursor}
+          initialHasNextPage={page.hasNextPage}
+          categorySlug={slug}
+          pageSize={PAGE_SIZE}
         />
       </div>
     </div>

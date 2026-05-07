@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ShoppingCart, Heart, Plus, Minus, Share2, Check } from 'lucide-react'
 import { useCart } from '@/hooks/CartProvider'
+import { useWishlist } from '@/hooks/WishlistProvider'
 import { formatPrice, calcDiscount } from '@/lib/utils'
 import type { Product } from '@/lib/types'
 
@@ -19,8 +20,21 @@ interface Props {
 
 export default function ProductAddToCart({ product }: Props) {
   const { addItem, items, updateQuantity } = useCart()
-  const [wished, setWished]   = useState(false)
+  const { hasItem: hasWish, toggleItem: toggleWish, hydrated: wishHydrated } = useWishlist()
+  const wished = wishHydrated && hasWish(product.id)
   const [copied, setCopied]   = useState(false)
+
+  function handleWishToggle() {
+    toggleWish({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      price: product.price,
+      oldPrice: product.oldPrice,
+      brand: product.brand,
+      image: product.images[0],
+    })
+  }
 
   const cartItem = items.find(i => i.id === product.id)
   const qty = cartItem?.quantity ?? 0
@@ -31,7 +45,12 @@ export default function ProductAddToCart({ product }: Props) {
   const deliveryStr = deliveryDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
 
   function handleAdd() {
-    addItem({ id: product.id, name: product.name, price: product.price })
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.images[0],
+    })
   }
 
   function handleShare() {
@@ -150,7 +169,7 @@ export default function ProductAddToCart({ product }: Props) {
       {/* Wishlist + Share */}
       <div className="flex gap-3">
         <button
-          onClick={() => setWished(w => !w)}
+          onClick={handleWishToggle}
           aria-label={wished ? 'Убрать из избранного' : 'Добавить в избранное'}
           aria-pressed={wished}
           className="flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium border-2 transition-all focus-visible:outline-2 focus-visible:outline-[#2B4DD6]"

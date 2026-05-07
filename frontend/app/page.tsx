@@ -1,5 +1,13 @@
 import type { Metadata } from 'next'
-import { fetchCategories, fetchFeaturedProducts, fetchSaleProducts } from '@/lib/wp-api'
+import {
+  fetchCategories,
+  fetchContacts,
+  fetchFaqItems,
+  fetchFeaturedProducts,
+  fetchHero,
+  fetchPromoSlides,
+  fetchSaleProducts,
+} from '@/lib/wp-api'
 import HeroSection from '@/components/features/HeroSection'
 import PromoSlider from '@/components/features/PromoSlider'
 import CategoryGrid from '@/components/features/CategoryGrid'
@@ -15,7 +23,6 @@ export const metadata: Metadata = {
     'Более 12 000 канцелярских товаров в наличии. Доставка по Беларуси за 24 часа. Оптовые цены от 1 единицы.',
 }
 
-/* JSON-LD structured data */
 function JsonLd() {
   const schema = {
     '@context': 'https://schema.org',
@@ -43,26 +50,25 @@ function JsonLd() {
 }
 
 export default async function HomePage() {
-  const [categories, featured, sale] = await Promise.all([
-    fetchCategories(),
-    fetchFeaturedProducts(10),
-    fetchSaleProducts(10),
-  ])
+  const [hero, promoSlides, categories, featured, sale, faqItems, contacts] =
+    await Promise.all([
+      fetchHero(),
+      fetchPromoSlides(),
+      fetchCategories(),
+      fetchFeaturedProducts(10),
+      fetchSaleProducts(10),
+      fetchFaqItems(),
+      fetchContacts(),
+    ])
 
   return (
     <>
       <JsonLd />
 
-      {/* 1. Hero */}
-      <HeroSection />
-
-      {/* 2. Promo slider */}
-      <PromoSlider />
-
-      {/* 3. Categories */}
+      <HeroSection content={hero} />
+      <PromoSlider slides={promoSlides} />
       <CategoryGrid categories={categories} />
 
-      {/* 4. Sale carousel */}
       {sale.length > 0 && (
         <ProductCarousel
           title="Цены, от которых не отвертеться"
@@ -71,7 +77,6 @@ export default async function HomePage() {
         />
       )}
 
-      {/* 5. Featured carousel */}
       {featured.length > 0 && (
         <section className="bg-[#F7F8FB]">
           <ProductCarousel
@@ -82,17 +87,10 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* 6. Why us */}
       <WhyUs />
-
-      {/* 7. Wholesale CTA */}
       <WholesaleSection />
-
-      {/* 8. FAQ */}
-      <FAQSection />
-
-      {/* 9. Contacts */}
-      <ContactsSection />
+      <FAQSection items={faqItems} />
+      <ContactsSection content={contacts} />
     </>
   )
 }

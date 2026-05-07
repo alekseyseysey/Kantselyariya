@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { fetchFaqItems } from '@/lib/wp-api'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import FAQSection from '@/components/features/FAQSection'
 
@@ -7,7 +8,9 @@ export const metadata: Metadata = {
   description: 'Ответы на самые популярные вопросы о заказе, доставке, оплате и возврате товаров в КанцМир.',
 }
 
-export default function FAQPage() {
+export default async function FAQPage() {
+  const items = await fetchFaqItems()
+
   return (
     <div className="bg-[#F7F8FB] min-h-screen">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -18,7 +21,7 @@ export default function FAQPage() {
           ]}
           className="mb-8"
         />
-        <FAQSection />
+        <FAQSection items={items} />
       </div>
     </div>
   )

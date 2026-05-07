@@ -3,9 +3,13 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Minus } from 'lucide-react'
-import { FAQ_ITEMS } from '@/lib/mock-data'
+import type { FAQ } from '@/lib/types'
 
-export default function FAQSection() {
+interface Props {
+  items: FAQ[]
+}
+
+export default function FAQSection({ items }: Props) {
   const [openId, setOpenId] = useState<number | null>(null)
 
   function toggle(i: number) {
@@ -27,7 +31,7 @@ export default function FAQSection() {
         </div>
 
         <dl className="space-y-3">
-          {FAQ_ITEMS.map((item, i) => {
+          {items.map((item, i) => {
             const isOpen = openId === i
             return (
               <div

@@ -4,15 +4,50 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
-import { CheckCircle, Loader2 } from 'lucide-react'
+import { CheckCircle, Loader2, Paperclip, X } from 'lucide-react'
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+const ALLOWED_FILE_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]
+const ALLOWED_FILE_EXTENSIONS = '.pdf,.doc,.docx,.xls,.xlsx'
+
+// `File` и `FileList` — браузерные globals, в Node их нет. Все обращения
+// к ним должны идти через guard'ы, иначе SSR-prerender компонента крашится
+// с `ReferenceError: FileList is not defined` на этапе загрузки модуля.
+const isFileList = (v: unknown): v is FileList =>
+  typeof FileList !== 'undefined' && v instanceof FileList
+const isFile = (v: unknown): v is File =>
+  typeof File !== 'undefined' && v instanceof File
+
+function isAttachmentValid(list: unknown): boolean {
+  if (list === undefined || list === null) return true
+  if (!isFileList(list) || list.length === 0) return true
+  const f = list[0]
+  if (!isFile(f)) return false
+  if (f.size > MAX_FILE_SIZE) return false
+  if (f.type && !ALLOWED_FILE_TYPES.includes(f.type)) return false
+  return true
+}
 
 const schema = z.object({
-  name:  z.string().min(2, 'Введите имя'),
-  phone: z.string().min(9, 'Введите корректный телефон'),
-  email: z.string().email('Введите корректный e-mail'),
+  name:    z.string().min(2, 'Введите имя'),
+  phone:   z.string().min(9, 'Введите корректный телефон'),
+  email:   z.string().email('Введите корректный e-mail'),
   orgType: z.string().min(1, 'Выберите тип организации'),
   comment: z.string().optional(),
   consent: z.literal(true, { message: 'Необходимо ваше согласие' }),
+  attachment: z
+    .custom<FileList | undefined>(isAttachmentValid, {
+      message: 'Файл не подходит — проверьте размер (до 10 МБ) и формат',
+    })
+    .optional(),
+  // honeypot — невидимое поле, бот его заполнит и заявка отбросится сервером.
+  website: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -29,19 +64,47 @@ const BENEFITS = [
 
 export default function WholesaleSection() {
   const [sent, setSent] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    watch,
+    setValue,
   } = useForm<FormData>({ resolver: zodResolver(schema) })
 
+  const fileList = watch('attachment')
+  const file = fileList && fileList.length > 0 ? fileList[0] : null
+
   async function onSubmit(data: FormData) {
-    await new Promise(r => setTimeout(r, 800))
-    console.info('Wholesale form:', data)
-    setSent(true)
-    reset()
+    setServerError(null)
+    try {
+      const fd = new FormData()
+      fd.append('name', data.name)
+      fd.append('phone', data.phone)
+      fd.append('email', data.email)
+      fd.append('orgType', data.orgType)
+      fd.append('comment', data.comment ?? '')
+      fd.append('consent', data.consent ? 'true' : 'false')
+      fd.append('website', data.website ?? '')
+      if (data.attachment && data.attachment.length > 0) {
+        fd.append('attachment', data.attachment[0])
+      }
+
+      const res = await fetch('/api/wholesale', { method: 'POST', body: fd })
+      const payload = (await res.json()) as { ok?: boolean; message?: string }
+
+      if (!res.ok || !payload.ok) {
+        throw new Error(payload.message ?? 'Не удалось отправить заявку')
+      }
+
+      setSent(true)
+      reset()
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'Что-то пошло не так')
+    }
   }
 
   return (
@@ -104,6 +167,22 @@ export default function WholesaleSection() {
                   Заявка на индивидуальный заказ
                 </h3>
                 <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+                  {/* Honeypot — скрытое поле, реальные пользователи его не увидят. */}
+                  <input
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    aria-hidden="true"
+                    {...register('website')}
+                    style={{
+                      position: 'absolute',
+                      left: '-9999px',
+                      width: '1px',
+                      height: '1px',
+                      opacity: 0,
+                    }}
+                  />
+
                   {/* Name */}
                   <div>
                     <label htmlFor="ws-name" className="block text-sm font-medium text-white/80 mb-1">
@@ -193,6 +272,52 @@ export default function WholesaleSection() {
                     />
                   </div>
 
+                  {/* Attachment */}
+                  <div>
+                    <label htmlFor="ws-file" className="block text-sm font-medium text-white/80 mb-1">
+                      Спецификация (PDF, DOC, XLS — до 10 МБ)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <label
+                        htmlFor="ws-file"
+                        className="flex items-center gap-2 cursor-pointer rounded-xl px-4 py-3 text-sm bg-white/10 border border-white/20 text-white/80 hover:bg-white/15 transition-colors focus-within:outline-2 focus-within:outline-[#7DD3C0]"
+                      >
+                        <Paperclip size={16} />
+                        {file ? 'Заменить файл' : 'Прикрепить файл'}
+                      </label>
+                      <input
+                        id="ws-file"
+                        type="file"
+                        accept={ALLOWED_FILE_EXTENSIONS}
+                        {...register('attachment')}
+                        aria-describedby={errors.attachment ? 'ws-file-err' : undefined}
+                        aria-invalid={!!errors.attachment}
+                        className="sr-only"
+                      />
+                      {file && (
+                        <div className="flex-1 flex items-center gap-2 min-w-0 rounded-xl px-3 py-2 bg-white/10 border border-white/20">
+                          <span className="text-xs text-white/80 truncate flex-1" title={file.name}>
+                            {file.name}{' '}
+                            <span className="text-white/40">({(file.size / 1024).toFixed(0)} КБ)</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setValue('attachment', undefined, { shouldValidate: true })}
+                            aria-label="Удалить файл"
+                            className="text-white/50 hover:text-[#FF8A3D] transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {errors.attachment && (
+                      <p id="ws-file-err" role="alert" className="mt-1 text-xs text-[#FF8A3D]">
+                        {errors.attachment.message as string}
+                      </p>
+                    )}
+                  </div>
+
                   {/* Consent */}
                   <div className="flex items-start gap-3">
                     <input
@@ -209,6 +334,13 @@ export default function WholesaleSection() {
                     </label>
                   </div>
                   {errors.consent && <p role="alert" className="text-xs text-[#FF8A3D]">{errors.consent.message}</p>}
+
+                  {/* Server error */}
+                  {serverError && (
+                    <div role="alert" className="rounded-xl px-4 py-3 text-sm bg-[#FF8A3D]/15 border border-[#FF8A3D]/40 text-[#FF8A3D]">
+                      {serverError}
+                    </div>
+                  )}
 
                   {/* Submit */}
                   <button

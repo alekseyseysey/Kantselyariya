@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Heart, ShoppingCart, Plus, Minus } from 'lucide-react'
 import { useCart } from '@/hooks/CartProvider'
+import { useWishlist } from '@/hooks/WishlistProvider'
 import { formatPrice, calcDiscount } from '@/lib/utils'
 import type { Product } from '@/lib/types'
 
@@ -21,7 +21,8 @@ interface Props {
 
 export default function ProductCard({ product }: Props) {
   const { addItem, items, updateQuantity } = useCart()
-  const [wished, setWished] = useState(false)
+  const { hasItem: hasWish, toggleItem: toggleWish, hydrated: wishHydrated } = useWishlist()
+  const wished = wishHydrated && hasWish(product.id)
 
   const cartItem = items.find(i => i.id === product.id)
   const qty = cartItem?.quantity ?? 0
@@ -32,7 +33,12 @@ export default function ProductCard({ product }: Props) {
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault()
-    addItem({ id: product.id, name: product.name, price: product.price })
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: product.images[0],
+    })
   }
 
   function handleInc(e: React.MouseEvent) {
@@ -47,7 +53,15 @@ export default function ProductCard({ product }: Props) {
 
   function handleWish(e: React.MouseEvent) {
     e.preventDefault()
-    setWished(w => !w)
+    toggleWish({
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      price: product.price,
+      oldPrice: product.oldPrice,
+      brand: product.brand,
+      image: product.images[0],
+    })
   }
 
   return (

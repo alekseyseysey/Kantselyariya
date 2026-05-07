@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { fetchContacts } from '@/lib/wp-api'
 import Breadcrumb from '@/components/ui/Breadcrumb'
 import ContactsSection from '@/components/features/ContactsSection'
 
@@ -7,7 +8,9 @@ export const metadata: Metadata = {
   description: 'Контакты интернет-магазина КанцМир: адрес, телефоны, e-mail, график работы.',
 }
 
-export default function ContactsPage() {
+export default async function ContactsPage() {
+  const contacts = await fetchContacts()
+
   return (
     <div className="bg-[#F7F8FB] min-h-screen">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -18,7 +21,7 @@ export default function ContactsPage() {
           ]}
           className="mb-8"
         />
-        <ContactsSection />
+        <ContactsSection content={contacts} />
       </div>
     </div>
   )
