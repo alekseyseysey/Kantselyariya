@@ -1,0 +1,19 @@
+name: Deploy to FastPanel
+
+on:
+  push:
+    branches: [master]   # измените, если у вас другая основная ветка (master?)
+  workflow_dispatch:    # позволяет запустить деплой вручную из вкладки Actions
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: /root/deploy-kantsmir.sh
