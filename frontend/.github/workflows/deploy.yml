@@ -2,8 +2,8 @@ name: Deploy to FastPanel
 
 on:
   push:
-    branches: [master]   # измените, если у вас другая основная ветка (master?)
-  workflow_dispatch:    # позволяет запустить деплой вручную из вкладки Actions
+    branches: [master]  
+  workflow_dispatch:   
 
 jobs:
   deploy:
