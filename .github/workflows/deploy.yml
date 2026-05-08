@@ -20,4 +20,8 @@ jobs:
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Run deploy script
-        run: ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '/root/deploy-kantsmir.sh'
+        run: |
+          ssh -o ServerAliveInterval=60 \
+              -o ServerAliveCountMax=10 \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+              '/root/deploy-kantsmir.sh'
